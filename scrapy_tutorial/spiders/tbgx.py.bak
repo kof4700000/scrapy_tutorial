@@ -1,0 +1,51 @@
+# -*- coding: utf-8 -*-
+import scrapy
+from scrapy_tutorial.items import comicItem
+import re
+import os
+
+project_dir = os.path.abspath(os.path.dirname(__file__))
+
+class TbgxSpider(scrapy.Spider):
+    name = 'tbgx'
+    #allowed_domains = ["comic.kukudm.com/"]
+    start_urls = [
+        #"http://comic.kukudm.com/comiclist/221/3007/1.htm"
+        #"http://comic.kukudm.com/comiclist/221/3008/1.htm"
+        "http://comic.kukudm.com/comiclist/221/3009/1.htm"
+    ]
+    current_page = 0
+    custom_settings = {
+        'IMAGES_URLS_FIELD' :"image_url",
+        'IMAGES_STORE':os.path.join(project_dir,'images'),
+        'IMAGES_EXPIRES': 90,
+    #'FEED_EXPORT_ENCIDING':'utf-8',
+        'ITEM_PIPELINES':{
+        'scrapy_tutorial.pipelines.ComicPipeline': 300,
+        'scrapy_tutorial.pipelines.ImagePipeline': 200,
+        #'scrapy.pipelines.images.ImagesPipeline':200, 
+        },
+    }
+
+
+    def parse(self, response):
+        pattern1 = re.compile('server+.*?>')
+        result1 = re.findall(pattern1,response.text)
+        result1 = result1[0].split('+')[1].replace("\"","").replace("'","").replace(">","")
+        item = comicItem()
+        img_url = "http://n5.1whour.com/" + result1
+        item['name'] = 'tbgx'
+        self.current_page = self.current_page + 1
+        item['page'] = self.current_page
+        item['volume'] = 3
+        item['image_url'] = []
+        item['image_url'].append(img_url) #image pipeline must be list
+        yield item
+        #pattern2 = re.compile('comiclist.*?htm')
+        #result2 = re.findall(pattern2,response.text)
+        result2 = response.css("td > a::attr(href)").extract()[-1]
+        if result2 is not None:
+            next_url =  "http://comic.kukudm.com" + result2
+            print next_url
+            yield response.follow(next_url, callback=self.parse)
+
